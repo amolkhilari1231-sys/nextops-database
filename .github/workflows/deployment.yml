@@ -26,6 +26,7 @@ on:
     paths:
       - "*.sql"
       - "migrate.py"
+      - "requirements.txt"
       - ".github/workflows/deployment.yml"
 
 permissions:
@@ -33,8 +34,29 @@ permissions:
   contents: read
 
 jobs:
+  validate-scripts:
+    name: "🔍 Validate Migration Scripts"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify Python Syntax
+        run: python -m py_compile migrate.py
+
   deploy-database:
     name: "🗄️ Database ${{ github.event.inputs.action || 'apply' }} (${{ github.event.inputs.environment || 'Preprod' }})"
+    if: github.event_name == 'workflow_dispatch'
+    needs: [validate-scripts]
     environment: ${{ github.event.inputs.environment || 'Preprod' }}
     runs-on: ubuntu-latest
     steps:
@@ -48,7 +70,7 @@ jobs:
           cache: "pip"
 
       - name: Install Dependencies
-        run: pip install psycopg2-binary requests
+        run: pip install -r requirements.txt
 
       - name: Azure Login via OIDC
         uses: azure/login@v2
